@@ -1,0 +1,68 @@
+FROM ubuntu:18.04 
+
+ENV  CONFIG_BPF=y
+ENV  CONFIG_BPF_SYSCALL=y
+# [optional, for tc filters]
+ENV  CONFIG_NET_CLS_BPF=m
+# [optional, for tc actions]
+ENV  CONFIG_NET_ACT_BPF=m
+ENV  CONFIG_BPF_JIT=y
+# [for Linux kernel versions 4.1 through 4.6]
+ENV  CONFIG_HAVE_BPF_JIT=y
+# [for Linux kernel versions 4.7 and later]
+ENV  CONFIG_HAVE_EBPF_JIT=y
+# [optional, for kprobes]
+ENV  CONFIG_BPF_EVENTS=y
+ENV  CONFIG_NET_SCH_SFQ=m
+ENV  CONFIG_NET_ACT_POLICE=m
+ENV  CONFIG_NET_ACT_GACT=m
+ENV  CONFIG_DUMMY=m
+ENV  CONFIG_VXLAN=m
+ENV  CONFIG_IKHEADERS=m
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn
+
+RUN echo "deb [trusted=yes] http://repo.iovisor.org/apt/bionic bionic-nightly main" | tee /etc/apt/sources.list.d/iovisor.list sudo
+RUN apt-get -y update
+RUN apt-get install -y bpfcc-tools linux-headers-$(uname -r)
+RUN apt-get -y update && apt-get -y install bcc-tools sudo
+RUN apt-get -y update && apt-get install -y --no-install-recommends apt-utils sudo 
+RUN apt-get -y update && apt-get install -y libbcc-examples sudo 
+RUN apt-get -y update && apt-get install -y llvm sudo 
+RUN apt-get -y update && apt-get install -y clang sudo 
+RUN apt-get -y update && apt-get install -y git sudo 
+RUN apt-get -y update && apt-get install -y vim wget sudo 
+#RUN apt-get -y update && apt-get install -y golang
+RUN apt-get -y update && apt-get -y install curl
+RUN apt-get -y update && apt-get install -y build-essential cmake bison flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev sudo 
+RUN apt-get -y update && apt-get -y install python-pip sudo 
+RUN apt-get -y update && apt-get -y install arping netperf iperf sudo
+RUN VER=trusty
+RUN echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic main" | tee /etc/apt/sources.list.d/llvm.list
+RUN echo "deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic main" | tee /etc/apt/sources.list.d/llvm.list
+RUN wget http://llvm.org/apt/llvm-snapshot.gpg.key
+RUN apt-key add llvm-snapshot.gpg.key 
+RUN apt-get update
+
+RUN git clone https://github.com/iovisor/bcc.git
+WORKDIR bcc/build
+RUN cmake .. -DCMAKE_INSTALL_PREFIX=usr
+RUN make
+RUN make install
+RUN pwd
+RUN ls -l
+RUN apt-get -y update
+RUN apt-get install sudo
+RUN pip install bcc
+RUN pip install pytest
+
+#WORKDIR /usr/local/bin
+
+COPY poc-ssl-test.c /home
+COPY poc-ssl-test.py /home
+WORKDIR /home
+
+RUN chmod 777 poc-ssl-test.py
+
+EXPOSE 443
+#USER sudo
+CMD /bin/bash -c "sleep 5 ;mount -t debugfs debugfs /sys/kernel/debug;sleep 5; python poc-ssl-test.py"
